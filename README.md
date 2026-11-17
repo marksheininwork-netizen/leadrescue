@@ -1,10 +1,10 @@
 # LeadRescue
 
-A lightweight lead inbox for small service businesses. Track inquiries, sources, next follow-up dates, and status. Copy a friendly follow-up draft when you are ready to contact someone.
+A lightweight lead inbox for small service businesses. Search and filter inquiries, edit contact notes, sort by follow-up urgency, and export a CSV backup. Copy a friendly follow-up or open a prefilled email draft when you are ready to contact someone.
 
 ## Run locally
 
-Open `index.html` in a modern browser. No install or build step is required. Demo records and new entries are stored in this browser's local storage. Follow-up actions prepare text only; they never send messages.
+Open `index.html` in a modern browser. No install or build step is required. Demo records and new entries are stored in this browser's local storage. Follow-up actions prepare text or open a prefilled email draft; they never send messages.
 
 ## Checks
 
