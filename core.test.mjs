@@ -1,0 +1,4 @@
+import test from'node:test';import assert from'node:assert/strict';import{leadState,followUpDraft,countOpen}from'./core.mjs';
+test('follow-up date creates overdue, today, and upcoming states',()=>{assert.equal(leadState({followup:'2026-11-15',status:'New'},'2026-11-16'),'overdue');assert.equal(leadState({followup:'2026-11-16',status:'New'},'2026-11-16'),'today');assert.equal(leadState({followup:'2026-11-17',status:'New'},'2026-11-16'),'upcoming')});
+test('closed stages do not appear open',()=>{assert.equal(leadState({followup:'2026-11-15',status:'Won'},'2026-11-16'),'closed');assert.equal(countOpen([{followup:'2026-11-15',status:'New'},{followup:'2026-11-16',status:'Closed'}]),1)});
+test('draft uses lead name and need without sending',()=>{const d=followUpDraft({name:'Jordan',need:'painting'});assert.match(d,/Jordan/);assert.match(d,/painting/)});
