@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "LeadRescue — Lead Inbox",
+  "short_name": "LeadRescue",
+  "description": "Keep service inquiries organized and remember every follow-up.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f6fb",
+  "theme_color": "#7478c9",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
