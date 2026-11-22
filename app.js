@@ -3,8 +3,8 @@ import { countOpen, dueLabel, followUpDraft, leadState, localISODate, shiftISODa
 const storageKey = 'leadrescue.leads.v1';
 const statuses = ['New', 'Contacted', 'Qualified', 'Won', 'Closed'];
 const sampleLeads = () => [
-  { id: crypto.randomUUID(), name: 'Jordan Miles', email: '', need: 'Kitchen remodel', source: 'Website', followup: localISODate(), status: 'New', notes: 'Asked about a spring start.' },
-  { id: crypto.randomUUID(), name: 'Sam Patel', email: '', need: 'Office painting', source: 'Referral', followup: shiftISODate(localISODate(), 3), status: 'Contacted', notes: 'Send color samples.' },
+  { id: crypto.randomUUID(), name: 'Jordan Miles', email: '', need: 'Kitchen remodel', value: 12000, source: 'Website', followup: localISODate(), status: 'New', notes: 'Asked about a spring start.' },
+  { id: crypto.randomUUID(), name: 'Sam Patel', email: '', need: 'Office painting', value: 4200, source: 'Referral', followup: shiftISODate(localISODate(), 3), status: 'Contacted', notes: 'Send color samples.' },
 ];
 
 function readLeads() {
@@ -20,6 +20,7 @@ let leads = readLeads();
 let filter = 'all';
 const $ = selector => document.querySelector(selector);
 const form = $('#lead-form');
+const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value) || 0);
 
 function toast(message) {
   const element = $('#toast');
@@ -68,7 +69,7 @@ function setupDataBackup(appName, readRecords, replaceRecords, isValidRecord) {
 setupDataBackup('leadrescue', () => leads, records => { leads = records; }, lead => lead && typeof lead.name === 'string' && typeof lead.need === 'string' && typeof lead.followup === 'string');
 
 function editLead(lead) {
-  for (const field of ['id', 'name', 'email', 'need', 'source', 'followup', 'status', 'notes']) {
+  for (const field of ['id', 'name', 'email', 'need', 'value', 'source', 'followup', 'status', 'notes']) {
     form.elements.namedItem(field).value = lead[field] || '';
   }
   form.querySelector('[type="submit"]').textContent = 'Save changes';
@@ -80,10 +81,12 @@ function editLead(lead) {
 function render() {
   const today = localISODate();
   const open = leads.filter(lead => leadState(lead, today) !== 'closed');
+  const pipelineValue = open.reduce((sum, lead) => sum + Math.max(0, Number(lead.value) || 0), 0);
   $('#stats').innerHTML = `
     <div class="stat"><label>Open leads</label><strong>${countOpen(leads)}</strong></div>
     <div class="stat"><label>Follow up today</label><strong>${open.filter(lead => leadState(lead, today) === 'today').length}</strong></div>
-    <div class="stat"><label>Past due</label><strong>${open.filter(lead => leadState(lead, today) === 'overdue').length}</strong></div>`;
+    <div class="stat"><label>Past due</label><strong>${open.filter(lead => leadState(lead, today) === 'overdue').length}</strong></div>
+    <div class="stat"><label>Open pipeline value</label><strong>${money(pipelineValue)}</strong></div>`;
 
   const query = $('#lead-search').value.trim().toLowerCase();
   const visible = leads.filter(lead => {
@@ -103,11 +106,12 @@ function render() {
   for (const lead of visible) {
     const state = leadState(lead, today);
     const row = document.createElement('tr');
-    row.innerHTML = `<td><div class="client-name"></div><div class="invoice-number"></div><small class="last-contact"></small></td><td class="need-cell"></td><td><time></time><small class="due-note"></small></td><td><span class="pill"></span></td><td><div class="row-actions"></div></td>`;
+    row.innerHTML = `<td><div class="client-name"></div><div class="invoice-number"></div><small class="last-contact"></small></td><td class="need-cell"></td><td class="value-cell"></td><td><time></time><small class="due-note"></small></td><td><span class="pill"></span></td><td><div class="row-actions"></div></td>`;
     row.querySelector('.client-name').textContent = lead.name;
     row.querySelector('.invoice-number').textContent = lead.source || 'Direct inquiry';
     row.querySelector('.last-contact').textContent = lead.lastContacted ? `Last contact: ${lead.lastContacted} · ${lead.contactCount || 1} logged` : 'No contact logged';
     row.querySelector('.need-cell').textContent = lead.need;
+    row.querySelector('.value-cell').textContent = money(lead.value);
     row.querySelector('time').dateTime = lead.followup;
     row.querySelector('time').textContent = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${lead.followup}T12:00:00`));
     row.querySelector('.due-note').textContent = state === 'closed' ? 'Closed' : dueLabel(lead.followup, today);
@@ -206,7 +210,7 @@ form.onsubmit = event => {
   values.name = values.name.trim();
   values.need = values.need.trim();
   const existing = leads.find(lead => lead.id === values.id);
-  const lead = { ...existing, ...values, id: existing?.id || crypto.randomUUID() };
+  const lead = { ...existing, ...values, value: Math.max(0, Number(values.value) || 0), id: existing?.id || crypto.randomUUID() };
   if (existing) leads = leads.map(item => item.id === existing.id ? lead : item);
   else leads.unshift(lead);
   form.reset();
@@ -216,7 +220,7 @@ form.onsubmit = event => {
 };
 
 $('#export').onclick = () => {
-  const rows = [['Name', 'Email', 'Project', 'Source', 'Follow up', 'Status', 'Notes'], ...leads.map(lead => [lead.name, lead.email, lead.need, lead.source, lead.followup, lead.status, lead.notes])];
+  const rows = [['Name', 'Email', 'Project', 'Estimated value', 'Source', 'Follow up', 'Status', 'Notes'], ...leads.map(lead => [lead.name, lead.email, lead.need, lead.value || 0, lead.source, lead.followup, lead.status, lead.notes])];
   const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   const link = document.createElement('a');
