@@ -17,10 +17,13 @@ function readLeads() {
 }
 
 let leads = readLeads();
+// Persist first-run sample records so the dashboard and analytics pages share the same data.
+if (!localStorage.getItem(storageKey)) localStorage.setItem(storageKey, JSON.stringify(leads));
+window.dispatchEvent(new Event('app-data-updated'));
 let filter = 'all';
 const $ = selector => document.querySelector(selector);
 const form = $('#lead-form');
-const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value) || 0);
+const money = value => { let currency = 'USD'; try { currency = JSON.parse(localStorage.getItem('leadrescue.preferences.v1') || '{}').currency || 'USD'; } catch {} return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(value) || 0); };
 
 function toast(message) {
   const element = $('#toast');
@@ -31,6 +34,7 @@ function toast(message) {
 
 function persist() {
   localStorage.setItem(storageKey, JSON.stringify(leads));
+  window.dispatchEvent(new Event('app-data-updated'));
   render();
 }
 
@@ -140,6 +144,16 @@ function render() {
       }
     };
     actions.append(draft);
+    const snooze = (days, label) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.setAttribute('aria-label', `Move ${lead.name} follow-up ${days} days later`);
+      button.onclick = () => { lead.followup = shiftISODate(localISODate(), days); persist(); toast(`Follow-up moved ${days === 1 ? 'to tomorrow' : 'one week later'}`); };
+      actions.append(button);
+    };
+    snooze(1, '+1 day');
+    snooze(7, '+7 days');
     const logContact = document.createElement('button');
     logContact.type = 'button';
     logContact.textContent = 'Log contact';
@@ -195,6 +209,7 @@ function render() {
 $('#add-toggle').onclick = () => {
   form.reset();
   form.elements.namedItem('id').value = '';
+  try { const prefs = JSON.parse(localStorage.getItem('leadrescue.preferences.v1') || '{}'); form.elements.namedItem('followup').value = shiftISODate(localISODate(), Number(prefs.followupDays) || 3); } catch {}
   form.querySelector('[type="submit"]').textContent = 'Save lead';
   form.classList.remove('hidden');
   form.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -231,3 +246,5 @@ $('#export').onclick = () => {
 };
 
 render();
+
+import './feature-pages.js';
