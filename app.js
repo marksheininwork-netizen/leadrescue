@@ -33,6 +33,40 @@ function persist() {
   render();
 }
 
+
+function setupDataBackup(appName, readRecords, replaceRecords, isValidRecord) {
+  $('#backup-export').onclick = () => {
+    const payload = { app: appName, version: 1, exportedAt: new Date().toISOString(), records: readRecords() };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${appName}-backup-${localISODate()}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Backup downloaded');
+  };
+  $('#backup-import').onclick = () => $('#backup-file').click();
+  $('#backup-file').onchange = async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const backup = JSON.parse(await file.text());
+      if (backup.app !== appName || backup.version !== 1 || !Array.isArray(backup.records) || !backup.records.every(isValidRecord)) {
+        throw new Error('This file is not a valid backup for this app.');
+      }
+      if (!confirm(`Replace this device’s current data with ${backup.records.length} records from this backup? This cannot be undone.`)) return;
+      replaceRecords(backup.records);
+      persist();
+      toast(`Imported ${backup.records.length} records`);
+    } catch (error) {
+      toast(error instanceof SyntaxError ? 'Could not read that backup file' : error.message || 'Could not import backup');
+    } finally {
+      event.target.value = '';
+    }
+  };
+}
+setupDataBackup('leadrescue', () => leads, records => { leads = records; }, lead => lead && typeof lead.name === 'string' && typeof lead.need === 'string' && typeof lead.followup === 'string');
+
 function editLead(lead) {
   for (const field of ['id', 'name', 'email', 'need', 'source', 'followup', 'status', 'notes']) {
     form.elements.namedItem(field).value = lead[field] || '';
@@ -69,9 +103,10 @@ function render() {
   for (const lead of visible) {
     const state = leadState(lead, today);
     const row = document.createElement('tr');
-    row.innerHTML = `<td><div class="client-name"></div><div class="invoice-number"></div></td><td class="need-cell"></td><td><time></time><small class="due-note"></small></td><td><span class="pill"></span></td><td><div class="row-actions"></div></td>`;
+    row.innerHTML = `<td><div class="client-name"></div><div class="invoice-number"></div><small class="last-contact"></small></td><td class="need-cell"></td><td><time></time><small class="due-note"></small></td><td><span class="pill"></span></td><td><div class="row-actions"></div></td>`;
     row.querySelector('.client-name').textContent = lead.name;
     row.querySelector('.invoice-number').textContent = lead.source || 'Direct inquiry';
+    row.querySelector('.last-contact').textContent = lead.lastContacted ? `Last contact: ${lead.lastContacted} · ${lead.contactCount || 1} logged` : 'No contact logged';
     row.querySelector('.need-cell').textContent = lead.need;
     row.querySelector('time').dateTime = lead.followup;
     row.querySelector('time').textContent = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${lead.followup}T12:00:00`));
@@ -101,6 +136,18 @@ function render() {
       }
     };
     actions.append(draft);
+    const logContact = document.createElement('button');
+    logContact.type = 'button';
+    logContact.textContent = 'Log contact';
+    logContact.setAttribute('aria-label', `Log a contact with ${lead.name}`);
+    logContact.onclick = () => {
+      lead.lastContacted = localISODate();
+      lead.contactCount = Number(lead.contactCount || 0) + 1;
+      if (lead.status === 'New') lead.status = 'Contacted';
+      persist();
+      toast('Contact logged on this device');
+    };
+    actions.append(logContact);
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.textContent = 'Edit';
