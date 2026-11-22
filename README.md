@@ -1,6 +1,6 @@
 # LeadRescue
 
-A lightweight lead inbox for small service businesses. Search and filter inquiries, edit contact notes, sort by follow-up urgency, and export CSV. Log each contact with a date and count, copy a friendly follow-up or open a prefilled email draft, and download or restore a versioned JSON backup.
+A lightweight lead inbox for small service businesses. Search and filter inquiries, edit contact notes, track estimated deal values and open pipeline value, and export CSV. Log each contact with a date and count, copy a friendly follow-up or open a prefilled email draft, and download or restore a versioned JSON backup.
 
 ## Live PWA
 
