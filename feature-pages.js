@@ -29,6 +29,30 @@ function saveSettings(e){e.preventDefault();const f=new FormData(e.currentTarget
 function loadSettings(){const s=settings(),form=$('#feature-settings');if(!form)return;form.elements.businessName.value=s.businessName||'';form.elements.email.value=s.email||'';form.elements.followupDays.value=s.followupDays||'3';form.elements.note.value=s.note||''}
 function exportCalendar(){const list=rows().filter(item=>item.followup&&!['Won','Closed'].includes(item.status));const stamp=date=>date.replaceAll('-','');const escapeICS=value=>String(value||'').replaceAll('\\','\\\\').replaceAll(';','\\;').replaceAll(',','\\,').replaceAll('\n','\\n');const dtstamp=new Date().toISOString().slice(0,19).replace(/[-:]/g,'')+'Z';const events=list.map(item=>`BEGIN:VEVENT\r\nUID:${encodeURIComponent(item.id||item.name)}@leadrescue\r\nDTSTAMP:${dtstamp}\r\nDTSTART;VALUE=DATE:${stamp(item.followup)}\r\nSUMMARY:${escapeICS('Follow up: '+item.name)}\r\nEND:VEVENT`).join('\r\n');const blob=new Blob([`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//leadrescue//Local Reminders//EN\r\n${events}\r\nEND:VCALENDAR`],{type:'text/calendar'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='leadrescue-reminders.ics';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000)}
 function exportReport(){const data=rows();const csv=[Object.keys(data[0]||{record:'No records'}).join(','),...data.map(item=>Object.values(item).map(v=>JSON.stringify(v??'')).join(','))].join('\n');const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));link.download='leadrescue-report.csv';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000)}
+function bindBackup(){
+ const status=$('#feature-backup-status'),exportButton=$('#feature-backup-export'),input=$('#feature-backup-file');
+ exportButton?.addEventListener('click',()=>{
+  const payload={app:'leadrescue',version:1,exportedAt:new Date().toISOString(),records:rows(),preferences:settings()};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='leadrescue-backup.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  if(status)status.textContent='Backup downloaded.';
+ });
+ input?.addEventListener('change',async event=>{
+  const file=event.currentTarget.files?.[0];if(!file)return;
+  try{
+   if(file.size>2*1024*1024)throw new Error('Backup must be 2 MB or smaller.');
+   const payload=JSON.parse(await file.text());
+   if(payload.app!=='leadrescue'||payload.version!==1||!Array.isArray(payload.records)||payload.records.length>10000)throw new Error('Choose a valid leadrescue JSON backup.');
+   const valid=payload.records.filter((r)=>r&&typeof r.id==='string'&&typeof r.name==='string'&&Number.isFinite(Number(r.value))&&Number(r.value)>=0&&typeof r.status==='string'),existing=rows(),ids=new Set(existing.map(r=>String(r.id))),merged=[...existing];let added=0;
+   for(const record of valid){const id=String(record.id);if(!id||ids.has(id))continue;ids.add(id);merged.push(record);added++}
+   localStorage.setItem(dataKey,JSON.stringify(merged));
+   if(payload.preferences&&typeof payload.preferences==='object'&&!Array.isArray(payload.preferences))localStorage.setItem(settingsKey,JSON.stringify(payload.preferences));
+   if(status)status.textContent='Restored '+added+' new records; duplicates and invalid rows were skipped. Reloading your workspace…';
+   setTimeout(()=>location.reload(),700);
+  }catch(error){if(status)status.textContent=error instanceof Error?error.message:'Could not restore this backup.'}
+  finally{event.currentTarget.value=''}
+ });
+}
 const statuses=['New','Contacted','Qualified','Won','Closed'];
 $('#feature-client-search')?.addEventListener('input',renderClients);$('#feature-settings')?.addEventListener('submit',saveSettings);$('#feature-export-report')?.addEventListener('click',exportReport);$('#feature-export-calendar')?.addEventListener('click',exportCalendar);
-loadSettings();renderClients();renderInsights();window.addEventListener('app-data-updated',()=>{renderClients();renderInsights()});window.addEventListener('storage',()=>{renderClients();renderInsights()});
+loadSettings();renderClients();renderInsights();bindBackup();window.addEventListener('app-data-updated',()=>{renderClients();renderInsights()});window.addEventListener('storage',()=>{renderClients();renderInsights()});
