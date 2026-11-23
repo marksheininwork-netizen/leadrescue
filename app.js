@@ -17,10 +17,13 @@ function readLeads() {
 }
 
 let leads = readLeads();
+// Persist first-run sample records so the dashboard and analytics pages share the same data.
+if (!localStorage.getItem(storageKey)) localStorage.setItem(storageKey, JSON.stringify(leads));
+window.dispatchEvent(new Event('app-data-updated'));
 let filter = 'all';
 const $ = selector => document.querySelector(selector);
 const form = $('#lead-form');
-const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value) || 0);
+const money = value => { let currency = 'USD'; try { currency = JSON.parse(localStorage.getItem('leadrescue.preferences.v1') || '{}').currency || 'USD'; } catch {} return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(value) || 0); };
 
 function toast(message) {
   const element = $('#toast');
@@ -31,6 +34,7 @@ function toast(message) {
 
 function persist() {
   localStorage.setItem(storageKey, JSON.stringify(leads));
+  window.dispatchEvent(new Event('app-data-updated'));
   render();
 }
 
@@ -140,6 +144,16 @@ function render() {
       }
     };
     actions.append(draft);
+    const snooze = (days, label) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.setAttribute('aria-label', `Move ${lead.name} follow-up ${days} days later`);
+      button.onclick = () => { lead.followup = shiftISODate(localISODate(), days); persist(); toast(`Follow-up moved ${days === 1 ? 'to tomorrow' : 'one week later'}`); };
+      actions.append(button);
+    };
+    snooze(1, '+1 day');
+    snooze(7, '+7 days');
     const logContact = document.createElement('button');
     logContact.type = 'button';
     logContact.textContent = 'Log contact';
@@ -152,6 +166,21 @@ function render() {
       toast('Contact logged on this device');
     };
     actions.append(logContact);
+    const scheduleNext = document.createElement('button');
+    scheduleNext.type = 'button';
+    scheduleNext.textContent = 'Log + set next follow-up';
+    scheduleNext.setAttribute('aria-label', 'Log contact and schedule next follow-up for '+lead.name);
+    scheduleNext.onclick = () => {
+      let days = 3;
+      try { days = Math.min(90, Math.max(1, Number(JSON.parse(localStorage.getItem('leadrescue.preferences.v1') || '{}').followupDays) || 3)); } catch {}
+      lead.lastContacted = localISODate();
+      lead.contactCount = Number(lead.contactCount || 0) + 1;
+      if (lead.status === 'New') lead.status = 'Contacted';
+      lead.followup = shiftISODate(localISODate(), days);
+      persist();
+      toast('Contact logged and follow-up set for '+days+' days from today.');
+    };
+    actions.append(scheduleNext);
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.textContent = 'Edit';
@@ -195,6 +224,7 @@ function render() {
 $('#add-toggle').onclick = () => {
   form.reset();
   form.elements.namedItem('id').value = '';
+  try { const prefs = JSON.parse(localStorage.getItem('leadrescue.preferences.v1') || '{}'); form.elements.namedItem('followup').value = shiftISODate(localISODate(), Number(prefs.followupDays) || 3); } catch {}
   form.querySelector('[type="submit"]').textContent = 'Save lead';
   form.classList.remove('hidden');
   form.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -231,3 +261,5 @@ $('#export').onclick = () => {
 };
 
 render();
+
+import './feature-pages.js';
