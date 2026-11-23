@@ -166,6 +166,21 @@ function render() {
       toast('Contact logged on this device');
     };
     actions.append(logContact);
+    const scheduleNext = document.createElement('button');
+    scheduleNext.type = 'button';
+    scheduleNext.textContent = 'Log + set next follow-up';
+    scheduleNext.setAttribute('aria-label', 'Log contact and schedule next follow-up for '+lead.name);
+    scheduleNext.onclick = () => {
+      let days = 3;
+      try { days = Math.min(90, Math.max(1, Number(JSON.parse(localStorage.getItem('leadrescue.preferences.v1') || '{}').followupDays) || 3)); } catch {}
+      lead.lastContacted = localISODate();
+      lead.contactCount = Number(lead.contactCount || 0) + 1;
+      if (lead.status === 'New') lead.status = 'Contacted';
+      lead.followup = shiftISODate(localISODate(), days);
+      persist();
+      toast('Contact logged and follow-up set for '+days+' days from today.');
+    };
+    actions.append(scheduleNext);
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.textContent = 'Edit';
