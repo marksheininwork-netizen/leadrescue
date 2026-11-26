@@ -17,3 +17,8 @@ Run `node --test` with Node.js 18 or newer to check lead workflows, PWA assets, 
 ## Scope
 
 This prototype has no login, server, shared customer data, CRM sync, payment processing, or remote lead capture. The early-access link opens a prefilled GitHub issue for an inbound request.
+
+
+## Support and privacy
+
+Use the public [LeadRescue issue tracker](https://github.com/marksheininwork-netizen/leadrescue/issues) for support. Do not post customer, invoice, quote, financial, or lead records; use redacted or synthetic examples. The app stores its working data locally in the browser, as described on its privacy page.
